@@ -1,0 +1,10 @@
+{
+    "name": "bariscodefx/server-list.bariscodefx.tk",
+    "type": "project",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "ServerList\\": "src/"
+        }
+    }
+}
