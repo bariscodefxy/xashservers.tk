@@ -1,6 +1,8 @@
 <?php
 
-error_reporting(E_ALL);
+require __DIR__ . "/config.php";
+
+error_reporting(0);
 
 const VIEW_DIR = "views/";
 

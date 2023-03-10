@@ -62,7 +62,9 @@ class Rcon
                                 $this->server_password = $server_password;
                                 //open connection to gameserver
                                 $fp                    = fsockopen("udp://" . $this->server_ip, $this->server_port, $errno, $errstr, 2);
-                                stream_set_timeout($fp, 2);
+                                stream_set_timeout($fp, 1, 0);
+                                // socket_set_option($fp, SOL_SOCKET, SO_RCVTIMEO, array('sec' => 1, 'usec' => 0));
+                                // socket_set_option($fp, SOL_SOCKET, SO_SNDTIMEO, array('sec' => 1, 'usec' => 0));
                                 if ($fp)
                                                 $this->connected = true;
                                 else {
