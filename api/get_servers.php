@@ -46,7 +46,7 @@ function replaceTimes() {
  *
  * @param string $ip
  * @param integer $port
- * @return void
+ * @return bool
  */
 function findServer(string $ip, int $port) {
 	global $info;
@@ -57,10 +57,34 @@ function findServer(string $ip, int $port) {
 	return false;
 }
 
+/**
+ * Server osunu döndürür
+ * 
+ * @return string
+ */
+function getOsName(string $char) {
+	switch($char) {
+		case "w":
+			return "Windows";
+		break;
+		case "l":
+			return "Linux";
+		break;
+		case "m":
+			return "MacOS";
+		break;
+	}
+	return "Unknown";
+}
+
 $s = $db->query("SELECT * FROM cache_servers")->fetchAll(\PDO::FETCH_ASSOC);
 foreach($s as $server) {
-	if(array_count_values(array_column($s, 'name'))[$server['name']] > 1) {
-		$db->query("DELETE FROM cache_servers WHERE id = '" . $server["id"] . "'");
+	if( // delete the server if...
+	array_count_values(array_column($s, 'name'))[$server['name']] > 1 // hostname already exists?
+	|| 
+	time() - $server["lastregistry"] > ((60 * 60) * 24)               // 1 day or more offline
+	) {
+		$db->query("DELETE FROM cache_servers WHERE id = '" . $server["id"] . "'"); // delete it
 	}
 }
 unset($s);
@@ -80,8 +104,16 @@ foreach($servers as $s)
 			goto fetchserver;
 		} else {
 			if( findServer($ip, $port) ) continue;
-			unset($SERVERSDB['id']);
-			$info[] = $SERVERSDB;
+			$info[] = [
+				"ip" => $SERVERSDB["ip"],
+				"port" => $SERVERSDB["port"],
+				"name" => $SERVERSDB["name"],
+				"map" => $SERVERSDB["map"],
+				"activeplayers" => $SERVERSDB["activeplayers"],
+				"maxplayers" => $SERVERSDB["maxplayers"],
+				"os" => $SERVERSDB["os"],
+				"lastregistry" => $SERVERSDB["lastregistry"]
+			];
 			continue;
 		}
 	}
@@ -108,18 +140,29 @@ fetchserver:
 		}
 		continue;
 	}
+	$s_info["ip"] = $ip;
+	$s_info["port"] = $port;
 	$s_info["name"] = preg_replace("/\^([0-9])/", "", $s_info["name"]);
 	$s_info["lastregistry"] = "Now";
-	$s_info["activeplayers"] -= $s_info["botplayers"];
-	$info[] = $s_info;
+	$s_info["os"] = getOsName($s_info["os"]);
+	$info[] = [
+		"ip" => $s_info["ip"],
+		"port" => $s_info["port"],
+		"name" => $s_info["name"],
+		"map" => $s_info["map"],
+		"activeplayers" => $s_info["activeplayers"],
+		"maxplayers" => $s_info["maxplayers"],
+		"os" => $s_info["os"],
+		"lastregistry" => $s_info["lastregistry"]
+	];
 	if ($exists) {
-		$query = $db->prepare("UPDATE cache_servers SET name = ?, map = ?, activeplayers = ?, maxplayers = ?, lastregistry = ? WHERE id = ?");
-		$query->execute([$s_info["name"], $s_info["map"], $s_info["activeplayers"], $s_info["maxplayers"], time(), $SERVERSDB['id']]);
+		$query = $db->prepare("UPDATE cache_servers SET name = ?, map = ?, activeplayers = ?, maxplayers = ?, os = ?, lastregistry = ? WHERE id = ?");
+		$query->execute([$s_info["name"], $s_info["map"], $s_info["activeplayers"], $s_info["maxplayers"], $s_info["os"], time(), $SERVERSDB['id']]);
 	}
 	else
 	{
-		$query = $db->prepare("INSERT INTO cache_servers SET ip = ?, port = ?, name = ?, map = ?, activeplayers = ?, maxplayers = ?, lastregistry = ?");
-		$query->execute([$s_info["ip"], $s_info["port"], $s_info["name"], $s_info["map"], $s_info["activeplayers"], $s_info["maxplayers"], time()]);
+		$query = $db->prepare("INSERT INTO cache_servers SET ip = ?, port = ?, name = ?, map = ?, activeplayers = ?, maxplayers = ?, os = ?, lastregistry = ?");
+		$query->execute([$s_info["ip"], $s_info["port"], $s_info["name"], $s_info["map"], $s_info["activeplayers"], $s_info["maxplayers"], $s_info["os"], time()]);
 	}
 	unset($s_info);
 }
@@ -129,5 +172,10 @@ function activeplayers($a, $b) {
 }
 usort($info, "activeplayers");
 replaceTimes();
+foreach($info as $key => $sw){
+	if(isset($sw['id'])) unset($info[$key]['id']);
+	if(is_numeric($sw['activeplayers'])) $info[$key]['activeplayers'] = strval($sw['activeplayers']);
+	if(is_numeric($sw['maxplayers'])) $info[$key]['maxplayers'] = strval($sw['maxplayers']);
+}
 
-echo json_encode($info);
+echo json_encode($info);	
